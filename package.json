@@ -1,0 +1,35 @@
+{
+  "name": "lpastar",
+  "version": "1.0.0",
+  "description": "An LPA* implementation",
+  "main": "dist/index.js",
+  "scripts": {
+    "prepublish": "gulp",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roblabla/node-lpastar"
+  },
+  "keywords": [
+    "lpastar",
+    "pathfinding",
+    "navigation",
+    "movement"
+  ],
+  "author": "roblabla",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/roblabla/node-lpastar/issues"
+  },
+  "homepage": "https://github.com/roblabla/node-lpastar",
+  "dependencies": {
+    "priorityqueuejs": "git://github.com/roblabla/priorityqueuejs.git",
+    "ramda": "^0.13.0"
+  },
+  "devDependencies": {
+    "gulp": "^3.8.11",
+    "gulp-babel": "^5.1.0",
+    "gulp-sourcemaps": "^1.5.2"
+  }
+}
