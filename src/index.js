@@ -15,9 +15,9 @@ var R = require("ramda");
 function comparator(a, b)
 {
   if (a.key[0] == b.key[0])
-    return a.key[1] - b.key[1];
+    return b.key[1] - a.key[1];
   else
-    return a.key[0] - b.key[0];
+    return b.key[0] - a.key[0];
 }
 
 function defaultHash(x)
@@ -28,13 +28,13 @@ function defaultHash(x)
 // Wooo, class
 class LPAStar
 {
-  constructor({ start, end, neighbor, distance, heuristics, hash = defaultHash } = {})
+  constructor({ start, end, neighbor, distance, heuristic, hash = defaultHash } = {})
   {
     this.neighbors = neighbor;
     this.distance = distance;
     // TODO : wrap heuristics such that it returns 0 if isEnd == true.
     // that would bridge the gap between node-astar and node-lpastar
-    this.heuristics = heuristics;
+    this.heuristics = heuristic;
     this.hash = hash;
     this.queue = new PriorityQueue(comparator);
     this.nodes = new Map();
@@ -80,7 +80,8 @@ class LPAStar
     // 1. Constant
     // 2. not dependant on heuristics
     // As such, it's probably possible to guess it from isEnd.
-    while (comparator(this.queue.peek(), { key: this.calculateKey(this.goal_node) }) < 0
+    console.log(this.queue.peek(), { key: this.calculateKey(this.goal_node), value: this.goal_node });
+    while (comparator(this.queue.peek(), { key: this.calculateKey(this.goal_node) }) > 0
         || this.goal_node.rhs != this.goal_node.g)
     {
       var u = this.queue.deq().value;
@@ -88,36 +89,43 @@ class LPAStar
       if (u.g > u.rhs)
       {
         u.g = u.rhs;
-        R.map(this.getNode.bind(this), this.neighbors(u.data)).forEach(this.updateVertex.bind(this));
+        R.map(this.getNode.bind(this), this.neighbors(u.data)).forEach((x) => {
+          this.updateVertex(x);
+        });
       }
       else
       {
         u.g = +Infinity;
-        R.map(this.getNode.bind(this), this.neighbors(u.data)).forEach(this.updateVertex.bind(this));
+        R.map(this.getNode.bind(this), this.neighbors(u.data)).forEach((x) => {
+          this.updateVertex(x);
+        });
         this.updateVertex(u);
       }
     }
   }
 
-  reconstructPath(node) {
-    if (node.parent !== undefined)
-    {
-      var pathSoFar = reconstructPath(node.parent);
-      pathSoFar.push(node);
-      return (pathSoFar);
-    }
+  reconstructPath(node, pathSoFar = []) {
+    pathSoFar.unshift(node.data);
+    if (node === this.start_node)
+      return pathSoFar;
     else
-      return ([node.data]);
+    {
+      var nextNode = R.minBy((x) => {
+        return x.g + this.distance(x.data, node.data);
+      }, R.map(this.getNode.bind(this), this.neighbors(node.data)));
+      return this.reconstructPath(nextNode, pathSoFar);
+    }
   }
 }
 
 export {LPAStar};
 
 export default function lpastar(opts) {
-  var pathfinder = new LPAStar(opts);
+  var pathfinder = opts.context ? opts.context : new LPAStar(opts);
   return {
     status: 'success',
-    cost: NaN,
-    path: reconstructPath
+    cost: pathfinder.goal_node.g,
+    path: pathfinder.reconstructPath(pathfinder.goal_node),
+    context: pathfinder
   };
 };
