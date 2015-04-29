@@ -35,12 +35,13 @@ class LPAStar
     // TODO : wrap heuristics such that it returns 0 if isEnd == true.
     // that would bridge the gap between node-astar and node-lpastar
     this.heuristics = heuristic;
+    this.end = end;
     this.hash = hash;
     this.queue = new PriorityQueue(comparator);
     this.nodes = new Map();
     this.start_node = this.getNode(start);
-    this.goal_node = this.getNode(end);
     this.start_node.rhs = 0;
+    this.goal_node = this.getNode(end);
     this.queue.enq({ key: [this.heuristics(this.start_node.data), 0], value: this.start_node });
     this.computeShortestPath();
   }
@@ -65,13 +66,12 @@ class LPAStar
 
   updateVertex(u)
   {
-    console.log("Update Vertex", u);
     if (u != this.start_node)
-      u.rhs = R.min(R.map((x) => { return x.g + this.distance(x.data, u.data); }, R.map(this.getNode.bind(this), this.neighbors(u.data))));
-    this.queue.remove(u, (x, y) => { return x === y.data ? 0 : 1 });
+      u.rhs = R.min(R.map((x) => { return x.g + this.distance(u.data, x.data); }, R.map(this.getNode.bind(this), this.neighbors(u.data))));
+    // TODO : I wonder if this is very very wrong...
+    this.queue.remove(u, (x, y) => { return this.hash(x.data) === this.hash(y.value.data) ? 0 : 1 });
     if (u.g != u.rhs)
       this.queue.enq({ key: this.calculateKey(u), value: u });
-    console.log("Vertex is now", u);
   }
 
   computeShortestPath()
@@ -80,12 +80,10 @@ class LPAStar
     // 1. Constant
     // 2. not dependant on heuristics
     // As such, it's probably possible to guess it from isEnd.
-    console.log(this.queue.peek(), { key: this.calculateKey(this.goal_node), value: this.goal_node });
     while (comparator(this.queue.peek(), { key: this.calculateKey(this.goal_node) }) > 0
         || this.goal_node.rhs != this.goal_node.g)
     {
       var u = this.queue.deq().value;
-      console.log("Compute Shortest Path", u);
       if (u.g > u.rhs)
       {
         u.g = u.rhs;
@@ -104,28 +102,32 @@ class LPAStar
     }
   }
 
-  reconstructPath(node, pathSoFar = []) {
-    pathSoFar.unshift(node.data);
-    if (node === this.start_node)
-      return pathSoFar;
-    else
-    {
-      var nextNode = R.minBy((x) => {
-        return x.g + this.distance(x.data, node.data);
-      }, R.map(this.getNode.bind(this), this.neighbors(node.data)));
-      return this.reconstructPath(nextNode, pathSoFar);
+}
+
+function reconstructPath(self, node, pathSoFar = []) {
+  pathSoFar.unshift(node.data);
+  if (node === self.start_node)
+    return pathSoFar;
+  else
+  {
+    var nextNode = R.minBy(R.prop('g'),  R.map(self.getNode.bind(self), self.neighbors(node.data)));
+    return reconstructPath(self, nextNode, pathSoFar);
+  }
+}
+
+function sendRet(pathfinder) {
+  return {
+    status: "success",
+    cost: pathfinder.goal_node.g,
+    path: reconstructPath(pathfinder, pathfinder.goal_node),
+    replan: function(x) {
+      pathfinder.updateVertex(pathfinder.getNode(x));
+      return sendRet(pathfinder);
     }
   }
 }
 
-export {LPAStar};
-
 export default function lpastar(opts) {
   var pathfinder = opts.context ? opts.context : new LPAStar(opts);
-  return {
-    status: 'success',
-    cost: pathfinder.goal_node.g,
-    path: pathfinder.reconstructPath(pathfinder.goal_node),
-    context: pathfinder
-  };
+  return sendRet(pathfinder);
 };
